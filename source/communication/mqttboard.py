@@ -46,35 +46,44 @@ class MqttBoard:
         # MQTT client setup
         self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         self.client.username_pw_set('emqx','public')
-        self.client.on_connect = self.on_connect
-        self.client.on_message = self.on_message
+        
+
+        def on_connect(client, userdata, flags, rc, properties):
+            self.print(f"Connected to MQTT broker with result code {rc}")
+            self.client.subscribe(self.topic)
+        
+        def on_message(client, userdata, msg:mqtt.MQTTMessage):
+            self.print(f"Message received: {msg.topic} {msg.payload.decode()}")
+
+            # inject the message to the event queue
+            new_data = []
+            msg_json = json.loads(msg.payload.decode())
+            print(msg_json)
+            new_data.append(Datatuple(time=msg_json['time'], type=msg_json['type'], subtype=msg_json['subtype'], content=msg_json['content']))
+            
+            self.data_logger.process_data(new_data)
+            if self.data_consumers:
+                #that's where the plotting is done
+                for data_consumer in self.data_consumers:
+                    data_consumer.process_data(new_data)
+
+        self.client.on_connect = on_connect
+        self.client.on_message = on_message
 
         # Connect to the broker
         self.print('Now connecting to MQTT broker')
-        while self.client.connect(self.broker_address, self.broker_port, 60)!= mqtt.MQTT_ERR_SUCCESS:
-            self.print('.')
-            time.sleep(1000)
+        try:
+            self.client.connect(self.broker_address, self.broker_port, 60)
+            self.client.loop_start()
+        except mqtt.Error as e:
+            self.print(f"Connection failed: {e}")
+            time.sleep(5)
 
         self.print('MQTT connected')
 
-    def on_connect(self, client, userdata, flags, rc):
-        self.print(f"Connected to MQTT broker with result code {rc}")
-        self.client.subscribe(self.topic)
 
-    def on_message(self, client, userdata, msg:mqtt.MQTTMessage):
-        self.print(f"Message received: {msg.topic} {msg.payload.decode()}")
 
-        # inject the message to the event queue
-        new_data = []
-        msg_json = json.loads(msg.payload.decode())
-        print(msg_json)
-        new_data.append(Datatuple(time=msg_json['time'], type=msg_json['type'], subtype=msg_json['subtype'], content=msg_json['content']))
-        
-        self.data_logger.process_data(new_data)
-        if self.data_consumers:
-            #that's where the plotting is done
-            for data_consumer in self.data_consumers:
-                data_consumer.process_data(new_data)
+   
 
     def reset(self):
         """Enter raw repl (soft reboots pyboard), import modules."""
@@ -196,8 +205,8 @@ class MqttBoard:
     def process_data(self):
         """Read data from serial line, generate list new_data of data tuples,
         pass new_data to data_logger and print_func if specified, return new_data."""
-
-        self.client.loop_forever()
+        # self.client.loop()
+        pass
        
 
     def trigger_event(self, event_name, source="u"):
