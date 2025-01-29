@@ -190,10 +190,13 @@ class Events_plot:
         self.data = np.zeros([self.data_len, 2])
 
     def process_data(self, new_data):
+        print(new_data)
         """Store new data from board."""
         if not self.event_IDs:
             return  # State machine can have no events.
         new_events = [nd for nd in new_data if nd.type == MsgType.EVENT]
+        # print(new_data[0].type)
+        # print(MsgType.EVENT)
         if new_events:
             n_new = len(new_events)
             self.data = np.roll(self.data, -n_new, axis=0)

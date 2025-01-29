@@ -58,8 +58,7 @@ class MqttBoard:
             # inject the message to the event queue
             new_data = []
             msg_json = json.loads(msg.payload.decode())
-            print(msg_json)
-            new_data.append(Datatuple(time=msg_json['time'], type=msg_json['type'], subtype=msg_json['subtype'], content=msg_json['content']))
+            new_data.append(Datatuple(time=msg_json['time'], type=MsgType(msg_json['type'].encode()), subtype=msg_json['subtype'], content=msg_json['content']))
             
             self.data_logger.process_data(new_data)
             if self.data_consumers:
