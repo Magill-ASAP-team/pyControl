@@ -5,6 +5,7 @@ from datetime import datetime
 from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
 from serial import SerialException, SerialTimeoutException
 from source.communication.pycboard import Pycboard, PyboardError, _djb2_file
+from source.communication.mqttboard import MqttBoard
 from source.gui.settings import get_setting, user_folder
 from source.gui.dialogs import Controls_dialog
 from source.gui.custom_controls_dialog import Custom_controls_dialog, Custom_gui
@@ -296,8 +297,12 @@ class Run_task_tab(QtWidgets.QWidget):
             self.connect_button.setEnabled(False)
             self.repaint()
             self.serial_port = self.GUI_main.setups_tab.get_port(self.board_select.currentText())
-            self.board = Pycboard(
-                self.serial_port, print_func=self.print_to_log, data_consumers=[self.task_plot, self.task_info]
+            # self.board = Pycboard(
+            #     self.serial_port, print_func=self.print_to_log, data_consumers=[self.task_plot, self.task_info]
+            # )
+            self.board = MqttBoard(
+                print_func=self.print_to_log,
+                data_consumers=[self.task_plot, self.task_info],
             )
             self.connected = True
             self.config_dropdown.setEnabled(True)

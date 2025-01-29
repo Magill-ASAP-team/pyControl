@@ -5,6 +5,7 @@ from source.gui.settings import get_setting, user_folder
 from source.gui.utility import TableCheckbox, parallel_call
 from source.gui.hardware_variables_dialog import Hardware_variables_editor
 from source.communication.pycboard import Pycboard, PyboardError
+from source.communication.mqttboard import MqttBoard
 
 
 class Setups_tab(QtWidgets.QWidget):
@@ -369,7 +370,11 @@ class Setup:
         """Instantiate pyboard object, opening serial connection to board."""
         self.print("\nConnecting to board.")
         try:
-            self.board = Pycboard(self.port, print_func=self.print)
+            # self.board = Pycboard(self.port, print_func=self.print)
+            self.board = MqttBoard(
+                print_func=self.print_to_log,
+                data_consumers=[self.run_exp_tab.experiment_plot.subject_plots[self.subject], self.task_info],
+            )
         except PyboardError:
             self.print("\nUnable to connect.")
 

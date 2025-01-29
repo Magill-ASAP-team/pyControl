@@ -9,12 +9,14 @@ from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
 from serial import SerialException
 
 from source.communication.pycboard import Pycboard, PyboardError
+from source.communication.mqttboard import MqttBoard
 from source.gui.settings import get_setting, user_folder
 from source.gui.plotting import Experiment_plot
 from source.gui.dialogs import Controls_dialog, Summary_variables_dialog
 from source.gui.utility import variable_constants, TaskInfo, parallel_call
 from source.gui.custom_controls_dialog import Custom_controls_dialog, Custom_gui
 from source.gui.hardware_variables_dialog import set_hardware_variables
+
 
 # ----------------------------------------------------------------------------------------
 #  Run_experiment_tab
@@ -356,8 +358,12 @@ class Subjectbox(QtWidgets.QGroupBox):
         """Connect to pyboard and instantiate Pycboard and Data_logger objects."""
         self.serial_port = self.GUI_main.setups_tab.get_port(self.setup_name)
         try:
-            self.board = Pycboard(
-                self.serial_port,
+            # self.board = Pycboard(
+            #     self.serial_port,
+            #     print_func=self.print_to_log,
+            #     data_consumers=[self.run_exp_tab.experiment_plot.subject_plots[self.subject], self.task_info],
+            # )
+            self.board = MqttBoard(
                 print_func=self.print_to_log,
                 data_consumers=[self.run_exp_tab.experiment_plot.subject_plots[self.subject], self.task_info],
             )
@@ -388,7 +394,8 @@ class Subjectbox(QtWidgets.QGroupBox):
         try:
             self.board.setup_state_machine(self.run_exp_tab.experiment.task)
             self.initialise_API()
-        except PyboardError:
+        except PyboardError as e:
+            self.print(e)
             self.setup_failed = True
             self.error()
             return

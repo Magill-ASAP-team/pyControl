@@ -5,6 +5,7 @@ from . import timer
 from . import state_machine as sm
 from . import hardware as hw
 from . import utility as ut
+import paho.mqtt.client as paho 
 
 VERSION = "2.0.2"
 
@@ -120,7 +121,6 @@ def receive_data():
             subtype = data_str[0]
             event_ID = int(data_str[1:])
             event_queue.put(Datatuple(current_time, EVENT_TYP, subtype, event_ID))
-
 
 def run():
     # Run framework for specified number of seconds.
