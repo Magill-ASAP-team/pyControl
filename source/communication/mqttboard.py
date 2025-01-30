@@ -51,6 +51,7 @@ class MqttBoard:
         self.msg_queue = deque()
 
         self.start_time = None
+        self.last_time = None
 
         def on_connect(client, userdata, flags, rc, properties):
             self.print(f"Connected to MQTT broker with result code {rc}")
@@ -203,8 +204,15 @@ class MqttBoard:
 
     def stop_framework(self):
         """Stop framework running on pyboard by sending stop command."""
-        self.framework_running = False
         self.client.loop_stop()
+
+        # inject a custom stop message here
+        msg = Datatuple(time=self.last_time-self.start_time, type=MsgType.STOPF, subtype='', content='')
+        self.msg_queue.append(msg)
+        self.process_data()
+
+        self.framework_running = False
+
 
     def process_data(self):
         """Read data from serial line, generate list new_data of data tuples,
@@ -220,14 +228,16 @@ class MqttBoard:
         '''
 
         # TODO: sometimes a furry of old messages (maybe problem with MQTT) may crash the program, need to fix
-        start_time = time.time()*1000
+        process_start_time = time.time()*1000
         new_data = []
-        while self.msg_queue and (time.time()-start_time)<self.update_interval:
+        while self.msg_queue and (time.time()-process_start_time)<self.update_interval:
             # keep reading data in the allowed time period
             new_data.append(self.msg_queue.popleft())
 
         if len(new_data)>0:
             print(new_data)
+            self.last_time  = new_data[-1].time 
+
         self.data_logger.process_data(new_data)
         if self.data_consumers:
             #that's where the plotting is done
@@ -237,7 +247,6 @@ class MqttBoard:
                 except:
                     print('error encounter in ', data_consumer)
 
-        ##TODO: need to generate a   self.end_timestamp  when framework stop
        
 
     def trigger_event(self, event_name, source="u"):

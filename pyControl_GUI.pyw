@@ -14,6 +14,7 @@ try:
     import numpy
     import serial
     import pyqtgraph
+    import paho
 except Exception as e:
     logging.error('  Unable to import dependencies:\n\n'+str(e)+'\n\n')
     sys.exit()
