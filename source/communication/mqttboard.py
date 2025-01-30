@@ -10,11 +10,11 @@ from array import array
 from .pyboard import Pyboard, PyboardError
 from .data_logger import Data_logger
 from .message import MsgType, Datatuple
-from source.gui.settings import VERSION, user_folder
+from source.gui.settings import VERSION, get_setting, user_folder
 from source.communication.pycboard import State_machine_info
 from dataclasses import dataclass
 import paho.mqtt.client as mqtt
-
+from collections import deque
 
 # ----------------------------------------------------------------------------------------
 #  Pycboard class.
@@ -36,35 +36,37 @@ class MqttBoard:
         
         self.reset()
         self.unique_ID = 'mqtt'
+        self.update_interval = get_setting("plotting", "update_interval") # in ms
 
 
         # MQTT settings
-        self.broker_address = "broker.emqx.io"
+        self.broker_address = "localhost"
         self.broker_port = 1883
-        self.topic = "teris/topic"
+        self.topic = "teris/234567"
 
         # MQTT client setup
         self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         self.client.username_pw_set('emqx','public')
-        
+        self.msg_queue = deque()
+
+        self.start_time = None
 
         def on_connect(client, userdata, flags, rc, properties):
             self.print(f"Connected to MQTT broker with result code {rc}")
             self.client.subscribe(self.topic)
         
         def on_message(client, userdata, msg:mqtt.MQTTMessage):
-            self.print(f"Message received: {msg.topic} {msg.payload.decode()}")
+            # self.print(f"Message received: {msg.topic} {msg.payload.decode()}")
 
             # inject the message to the event queue
-            new_data = []
             msg_json = json.loads(msg.payload.decode())
-            new_data.append(Datatuple(time=msg_json['time'], type=MsgType(msg_json['type'].encode()), subtype=msg_json['subtype'], content=msg_json['content']))
+            # in the event plot, the timing of all event are converted to be relative to the current run time
+            if self.start_time is None:
+                self.start_time = msg_json['time']
             
-            self.data_logger.process_data(new_data)
-            if self.data_consumers:
-                #that's where the plotting is done
-                for data_consumer in self.data_consumers:
-                    data_consumer.process_data(new_data)
+            # all message time is relative to the first msg time
+            self.msg_queue.append(Datatuple(time=msg_json['time']-self.start_time, type=MsgType(msg_json['type'].encode()), subtype=msg_json['subtype'], content=msg_json['content']))
+            
 
         self.client.on_connect = on_connect
         self.client.on_message = on_message
@@ -204,8 +206,31 @@ class MqttBoard:
     def process_data(self):
         """Read data from serial line, generate list new_data of data tuples,
         pass new_data to data_logger and print_func if specified, return new_data."""
-        # self.client.loop()
-        pass
+
+        '''
+        The assumption is that process_data is called after the plots are initialized
+        so we can only call the data_consumer.process_ata here
+        Note: in the original serial commucation, it keeps looping until there is not new data
+        so when there is constant data influx (e.g. high sampling rate analog signal), the UI may hang up because
+        process_data is running in the main thread
+        
+        '''
+
+        # TODO: sometimes a furry of old messages (maybe problem with MQTT) may crash the program, need to fix
+        start_time = time.time()*1000
+        new_data = []
+        while self.msg_queue and (time.time()-start_time)<self.update_interval:
+            # keep reading data in the allowed time period
+            new_data.append(self.msg_queue.popleft())
+
+        if len(new_data)>0:
+            print(new_data)
+        self.data_logger.process_data(new_data)
+        if self.data_consumers:
+            #that's where the plotting is done
+            for data_consumer in self.data_consumers:
+                data_consumer.process_data(new_data)
+
        
 
     def trigger_event(self, event_name, source="u"):
