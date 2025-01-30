@@ -232,8 +232,12 @@ class MqttBoard:
         if self.data_consumers:
             #that's where the plotting is done
             for data_consumer in self.data_consumers:
-                data_consumer.process_data(new_data)
+                try:
+                    data_consumer.process_data(new_data)
+                except:
+                    print('error encounter in ', data_consumer)
 
+        ##TODO: need to generate a   self.end_timestamp  when framework stop
        
 
     def trigger_event(self, event_name, source="u"):
