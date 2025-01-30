@@ -207,7 +207,7 @@ class MqttBoard:
         self.client.loop_stop()
 
         # inject a custom stop message here
-        msg = Datatuple(time=self.last_time-self.start_time, type=MsgType.STOPF, subtype='', content='')
+        msg = Datatuple(time=self.last_time, type=MsgType.STOPF, subtype='', content='')
         self.msg_queue.append(msg)
         self.process_data()
 
