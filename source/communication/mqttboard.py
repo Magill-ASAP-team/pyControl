@@ -42,7 +42,8 @@ class MqttBoard:
         # MQTT settings
         self.broker_address = "localhost"
         self.broker_port = 1883
-        self.topic = "teris/234567"
+        self.data_topic = "stream/data"
+        self.control_topic = 'control/startstop'
 
         # MQTT client setup
         self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
@@ -53,7 +54,7 @@ class MqttBoard:
 
         def on_connect(client, userdata, flags, rc, properties):
             self.print(f"Connected to MQTT broker with result code {rc}")
-            self.client.subscribe(self.topic)
+            self.client.subscribe(self.data_topic)
         
         def on_message(client, userdata, msg:mqtt.MQTTMessage):
             # self.print(f"Message received: {msg.topic} {msg.payload.decode()}")
@@ -75,7 +76,6 @@ class MqttBoard:
         self.print('Now connecting to MQTT broker')
         try:
             self.client.connect(self.broker_address, self.broker_port, 60)
-            self.client.loop_start()
         except mqtt.Error as e:
             self.print(f"Connection failed: {e}")
             time.sleep(5)
@@ -197,11 +197,14 @@ class MqttBoard:
 
     def start_framework(self, data_output=True):
         """Start pyControl framwork running on pyboard."""
+        self.client.loop_start()
         self.framework_running = True
+
 
     def stop_framework(self):
         """Stop framework running on pyboard by sending stop command."""
         self.framework_running = False
+        self.client.loop_stop()
 
     def process_data(self):
         """Read data from serial line, generate list new_data of data tuples,
