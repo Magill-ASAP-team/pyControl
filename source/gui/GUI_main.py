@@ -192,7 +192,7 @@ class GUI_main(QtWidgets.QMainWindow):
         if self.available_experiments_changed:
             self.available_experiments = experiments
         # Scan serial ports.
-        ports = set([c[0] for c in list_ports.comports() if ("Pyboard" in c[1]) or ("USB Serial Device" in c[1])])
+        ports = set([c[0] for c in list_ports.comports() if ("Pyboard" in c[1]) or ("USB Serial Device" in c[1])]+['network'])
         self.available_ports_changed = ports != self.available_ports
         if self.available_ports_changed:
             self.available_ports = ports
