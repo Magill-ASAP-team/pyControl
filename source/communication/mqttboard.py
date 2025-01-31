@@ -190,7 +190,7 @@ class MqttBoard:
 
     def get_events(self):
         """Return events as a dictionary {event_name: state_ID}"""
-        return {'spout':0}
+        return {'spout':0, 'US_timer':1, 'entry':2}
 
     def get_analog_inputs(self):
         """Return analog_inputs as a dictionary: {ID: {'name':, 'fs':, 'dtype': 'plot':}}"""
