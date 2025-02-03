@@ -212,6 +212,7 @@ class MqttBoard:
         self.process_data()
 
         self.framework_running = False
+        print('MQTT loop stopped')
 
 
     def process_data(self):
@@ -227,7 +228,7 @@ class MqttBoard:
         
         '''
 
-        # TODO: sometimes a furry of old messages (maybe problem with MQTT) may crash the program, need to fix
+        # TODO: sometimes a flurry of old messages (maybe problem with MQTT) may crash the program, need to fix
         process_start_time = time.time()*1000
         new_data = []
         while self.msg_queue and (time.time()-process_start_time)<self.update_interval:
