@@ -40,7 +40,7 @@ class MqttBoard:
 
 
         # MQTT settings
-        self.broker_address = "localhost"
+        self.broker_address = "163.1.195.70"
         self.broker_port = 1883
         self.data_topic = "stream/data"
         self.control_topic = 'control/startstop'
@@ -186,11 +186,11 @@ class MqttBoard:
 
     def get_states(self):
         """Return states as a dictionary {state_name: state_ID}"""
-        return {'cue':0,'break_after_trial':1}
+        return {'cue':0,'break_after_trial':1} # the ID must be unique across all event and states
 
     def get_events(self):
         """Return events as a dictionary {event_name: state_ID}"""
-        return {'spout':0, 'US_timer':1, 'entry':2}
+        return {'spout':2, 'US_timer':3, 'entry':4}
 
     def get_analog_inputs(self):
         """Return analog_inputs as a dictionary: {ID: {'name':, 'fs':, 'dtype': 'plot':}}"""
