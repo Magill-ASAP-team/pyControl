@@ -23,6 +23,7 @@ class Task_plot(QtWidgets.QWidget):
         self.events_plot = Events_plot(self, data_len=get_setting("plotting", "event_history_len"))
         self.analog_plot = Analog_plot(self, data_dur=get_setting("plotting", "analog_history_dur"))
         self.run_clock = Run_clock(self.states_plot.axis)
+        self.image_plot = Image_plot(self)
 
         # Setup plots
         self.pause_button = QtWidgets.QPushButton()
@@ -33,25 +34,38 @@ class Task_plot(QtWidgets.QWidget):
         self.analog_plot.axis.setVisible(False)
 
         # create layout
-
         self.layout = QtWidgets.QGridLayout()
         self.layout.addWidget(self.states_plot.axis, 0, 0, 1, 3)
         self.layout.addWidget(self.events_plot.axis, 1, 0, 1, 3)
         self.layout.addWidget(self.analog_plot.axis, 2, 0, 1, 3)
-        self.layout.addWidget(self.pause_button, 3, 0, 1, 3, QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.layout.addWidget(self.image_plot.axis, 0, 3, 1, 1)  # Span 3 rows, 1 column
+        self.layout.addWidget(self.pause_button, 3, 0, 1, 1, QtCore.Qt.AlignmentFlag.AlignCenter)  # Span all 4 columns
+
+        # Set column stretch to control relative widths
+        self.layout.setColumnStretch(0, 1)
+        self.layout.setColumnStretch(1, 1) 
+        self.layout.setColumnStretch(2, 1)
+        self.layout.setColumnStretch(3, 1)  # Image column gets same weight as one main column
+
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.layout)
 
         self.pause_button.clicked.connect(self.update_pause_btn_text)
         self.update_pause_btn_text()
-
+        
     def set_state_machine(self, sm_info):
         # Initialise plots with state machine information.
         self.axiswidth = 6 + 6 * max([len(n) for n in list(sm_info.states) + list(sm_info.events)])
         self.states_plot.set_state_machine(sm_info)
         self.events_plot.set_state_machine(sm_info)
         self.analog_plot.set_state_machine(sm_info)
-        if self.analog_plot.inputs:
+        self.image_plot.set_state_machine(sm_info)
+        
+        # Set visibility and layout based on available plots
+        has_analog = self.analog_plot.inputs
+        has_images = getattr(self.image_plot, 'has_images', False)
+        
+        if has_analog:
             self.analog_plot.axis.setVisible(True)
             self.events_plot.axis.getAxis("bottom").setLabel("")
             self.layout.setRowStretch(0, 1)
@@ -63,6 +77,9 @@ class Task_plot(QtWidgets.QWidget):
             self.layout.setRowStretch(0, 1)
             self.layout.setRowStretch(1, 1)
             self.layout.setRowStretch(2, 0)
+            
+  
+        self.layout.setRowStretch(3, 0)
 
     def run_start(self, recording):
         self.pause_button.setChecked(False)
@@ -72,6 +89,7 @@ class Task_plot(QtWidgets.QWidget):
         self.states_plot.run_start()
         self.events_plot.run_start()
         self.analog_plot.run_start()
+        self.image_plot.run_start()
         if recording:
             self.run_clock.recording()
 
@@ -84,6 +102,7 @@ class Task_plot(QtWidgets.QWidget):
         self.states_plot.process_data(new_data)
         self.events_plot.process_data(new_data)
         self.analog_plot.process_data(new_data)
+        self.image_plot.process_data(new_data)
 
     def update(self):
         """Update plots."""
@@ -92,6 +111,7 @@ class Task_plot(QtWidgets.QWidget):
             self.states_plot.update(run_time)
             self.events_plot.update(run_time)
             self.analog_plot.update(run_time)
+            self.image_plot.update(run_time)
             self.run_clock.update(run_time)
 
     def update_pause_btn_text(self):
@@ -269,6 +289,102 @@ class Analog_plot:
             return  # State machine may not have analog inputs.
         for ID in self.inputs.keys():
             self.plots[ID].setData(x=self.data[ID][:, 0] - run_time, y=self.data[ID][:, 1])
+
+
+# ------------------------------------------------------------------------------------------
+
+
+class Image_plot:
+    def __init__(self, parent=None):
+        self.task_plot = parent
+        self.axis = pg.ImageView()
+        
+        # Disable level and ROI controls
+        self.axis.ui.roiBtn.hide()
+        self.axis.ui.menuBtn.hide()
+        self.axis.ui.histogram.hide()
+        
+        self.axis.setImage(np.zeros((200, 200, 3), dtype=np.uint8))  # Initialize with empty image
+        self.current_image = None
+        self.has_images = True  # Enable for demo
+        
+        # Add demo image for testing
+        self.load_demo_image()
+
+    def set_state_machine(self, sm_info):
+        # Check if state machine has image display capability
+        self.has_images = hasattr(sm_info, 'image_inputs') and sm_info.image_inputs
+        if not self.has_images:
+            # Keep demo image if no real image inputs
+            self.has_images = True
+            return
+
+    def run_start(self):
+        if not self.has_images:
+            return  # State machine may not have image inputs
+        self.current_image = None
+
+    def process_data(self, new_data):
+        """Store new image data from board."""
+        if not self.has_images:
+            return  # State machine may not have image inputs
+        # Filter for image data - adjust MsgType as needed for your system
+        new_images = [nd for nd in new_data if hasattr(nd, 'type') and nd.type == 'IMAGE']
+        if new_images:
+            # Use the most recent image
+            latest_image = new_images[-1]
+            self.current_image = latest_image.content
+
+    def update(self, run_time):
+        """Update image display."""
+        if not self.has_images or not self.current_image:
+            return  # State machine may not have image inputs
+        if self.current_image is not None:
+            self.axis.setImage(self.current_image)
+
+    def load_image_from_file(self, filepath):
+        """Load and display a JPEG image from file path."""
+        try:
+            from PIL import Image
+            import numpy as np
+            
+            # Load JPEG image
+            pil_image = Image.open(filepath)
+            # Convert to numpy array
+            image_array = np.array(pil_image)
+            
+            self.axis.setImage(image_array)
+            self.current_image = image_array
+            
+        except Exception as e:
+            print(f"Error loading image: {e}")
+
+    def load_demo_image(self):
+        """Load a demo image for testing purposes."""
+        try:
+            import numpy as np
+            
+            # Create a colorful demo image (200x200 pixels)
+            height, width = 200, 200
+            demo_image = np.zeros((height, width, 3), dtype=np.uint8)
+            
+            # Create gradient patterns
+            x = np.linspace(0, 1, width)
+            y = np.linspace(0, 1, height)
+            X, Y = np.meshgrid(x, y)
+            
+            # Red channel: diagonal gradient
+            demo_image[:, :, 0] = (255 * (X + Y) / 2).astype(np.uint8)
+            # Green channel: circular pattern
+            demo_image[:, :, 1] = (255 * np.sin(5 * np.pi * np.sqrt(X**2 + Y**2))**2).astype(np.uint8)
+            # Blue channel: checkerboard
+            demo_image[:, :, 2] = (255 * ((X * 8).astype(int) + (Y * 8).astype(int)) % 2).astype(np.uint8)
+            
+            self.axis.setImage(demo_image)
+            self.current_image = demo_image
+            
+        except Exception as e:
+            print(f"Error loading demo image: {e}")
 
 
 # -----------------------------------------------------
