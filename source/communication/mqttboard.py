@@ -40,7 +40,7 @@ class MqttBoard:
 
 
         # MQTT settings
-        self.broker_address = "163.1.195.70"
+        self.broker_address = "192.168.137.1"
         self.broker_port = 1883
         self.data_topic = "stream/data"
         self.control_topic = 'control/startstop'
