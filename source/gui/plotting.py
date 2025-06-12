@@ -304,20 +304,11 @@ class Image_plot:
         self.axis.ui.menuBtn.hide()
         self.axis.ui.histogram.hide()
         
-        self.axis.setImage(np.zeros((200, 200, 3), dtype=np.uint8))  # Initialize with empty image
         self.current_image = None
-        self.has_images = True  # Enable for demo
         
-        # Add demo image for testing
-        self.load_demo_image()
-
     def set_state_machine(self, sm_info):
         # Check if state machine has image display capability
         self.has_images = hasattr(sm_info, 'image_inputs') and sm_info.image_inputs
-        if not self.has_images:
-            # Keep demo image if no real image inputs
-            self.has_images = True
-            return
 
     def run_start(self):
         if not self.has_images:
@@ -326,19 +317,34 @@ class Image_plot:
 
     def process_data(self, new_data):
         """Store new image data from board."""
-        if not self.has_images:
-            return  # State machine may not have image inputs
+
         # Filter for image data - adjust MsgType as needed for your system
-        new_images = [nd for nd in new_data if hasattr(nd, 'type') and nd.type == 'IMAGE']
+        new_images = [nd for nd in new_data if hasattr(nd, 'type') and nd.type == MsgType.IMAGE]
+        # print('image data received ', len(new_images))
         if new_images:
             # Use the most recent image
             latest_image = new_images[-1]
-            self.current_image = latest_image.content
+            try:
+                import base64
+                from PIL import Image
+                import io
+                
+                # Decode base64 string to bytes
+                image_bytes = base64.b64decode(latest_image.content)
+                
+                # Convert bytes to PIL Image
+                pil_image = Image.open(io.BytesIO(image_bytes))
+                
+                # Convert to numpy array
+                image_array = np.array(pil_image).transpose(1,0,2)
+                print(image_array.shape)
+                self.current_image = image_array
+            except Exception as e:
+                print(f"Error processing image data: {e}")
+                self.current_image = None
 
     def update(self, run_time):
         """Update image display."""
-        if not self.has_images or not self.current_image:
-            return  # State machine may not have image inputs
         if self.current_image is not None:
             self.axis.setImage(self.current_image)
 
@@ -358,33 +364,6 @@ class Image_plot:
             
         except Exception as e:
             print(f"Error loading image: {e}")
-
-    def load_demo_image(self):
-        """Load a demo image for testing purposes."""
-        try:
-            import numpy as np
-            
-            # Create a colorful demo image (200x200 pixels)
-            height, width = 200, 200
-            demo_image = np.zeros((height, width, 3), dtype=np.uint8)
-            
-            # Create gradient patterns
-            x = np.linspace(0, 1, width)
-            y = np.linspace(0, 1, height)
-            X, Y = np.meshgrid(x, y)
-            
-            # Red channel: diagonal gradient
-            demo_image[:, :, 0] = (255 * (X + Y) / 2).astype(np.uint8)
-            # Green channel: circular pattern
-            demo_image[:, :, 1] = (255 * np.sin(5 * np.pi * np.sqrt(X**2 + Y**2))**2).astype(np.uint8)
-            # Blue channel: checkerboard
-            demo_image[:, :, 2] = (255 * ((X * 8).astype(int) + (Y * 8).astype(int)) % 2).astype(np.uint8)
-            
-            self.axis.setImage(demo_image)
-            self.current_image = demo_image
-            
-        except Exception as e:
-            print(f"Error loading demo image: {e}")
 
 
 # -----------------------------------------------------

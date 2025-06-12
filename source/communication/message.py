@@ -16,6 +16,7 @@ class MsgType(Enum):
     ERROR = b"!!"  # Error
     STOPF = b"X"  # Stop framework
     ANLOG = b"A"  # Analog
+    IMAGE = b'I' # Image
 
     @classmethod
     def from_byte(cls, byte_value):
